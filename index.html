@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Risk Calculator</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1 { text-align: center; }
+    .container { max-width: 500px; margin: auto; }
+    label { display: block; margin-top: 10px; }
+    input, select, button { width: 100%; padding: 8px; margin-top: 5px; }
+    .result { margin-top: 20px; padding: 10px; border: 1px solid #ccc; background: #f9f9f9; }
+    canvas { margin-top: 20px; width: 100% !important; height: 300px !important; }
+  </style>
+</head>
+<body>
+  <h1>Risk Calculator</h1>
+  <div class="container">
+    <label>Account Balance ($):</label>
+    <input type="number" id="balance" value="10000">
+
+    <label>Risk % per Trade:</label>
+    <input type="number" id="riskPercent" value="1">
+
+    <label>Market:</label>
+    <select id="market">
+      <option value="forex">Forex</option>
+      <option value="gold">Gold</option>
+      <option value="crypto">Crypto</option>
+      <option value="stocks">Stocks</option>
+    </select>
+
+    <label>Entry Price:</label>
+    <input type="number" id="entry" value="1900">
+
+    <label>Stop Loss Price:</label>
+    <input type="number" id="sl" value="1895">
+
+    <label>Take Profit Price:</label>
+    <input type="number" id="tp" value="1910">
+
+    <button onclick="calculate()">Calculate</button>
+
+    <div class="result" id="result"></div>
+    <canvas id="chart"></canvas>
+  </div>
+
+<script>
+function calculate() {
+  const balance = parseFloat(document.getElementById('balance').value);
+  const riskPercent = parseFloat(document.getElementById('riskPercent').value);
+  const entry = parseFloat(document.getElementById('entry').value);
+  const sl = parseFloat(document.getElementById('sl').value);
+  const tp = parseFloat(document.getElementById('tp').value);
+
+  const riskAmount = balance * (riskPercent / 100);
+  const riskPerUnit = Math.abs(entry - sl);
+  const positionSize = riskPerUnit > 0 ? riskAmount / riskPerUnit : 0;
+  const reward = Math.abs(tp - entry) * positionSize;
+  const rr = reward > 0 ? (reward / riskAmount).toFixed(2) : "N/A";
+
+  document.getElementById('result').innerHTML =
+    `<b>Risk Amount:</b> $${riskAmount.toFixed(2)}<br>
+     <b>Position Size:</b> ${positionSize.toFixed(2)} units<br>
+     <b>Potential Reward:</b> $${reward.toFixed(2)}<br>
+     <b>R:R Ratio:</b> ${rr}`;
+
+  drawChart(entry, sl, tp);
+}
+
+let chart;
+function drawChart(entry, sl, tp) {
+  const ctx = document.getElementById('chart').getContext('2d');
+
+  if (!window.candles) {
+    // generate random candles once
+    window.candles = [];
+    let price = entry;
+    for (let i = 0; i < 30; i++) {
+      let open = price + (Math.random() - 0.5) * 5;
+      let close = open + (Math.random() - 0.5) * 5;
+      let high = Math.max(open, close) + Math.random() * 2;
+      let low = Math.min(open, close) - Math.random() * 2;
+      window.candles.push({x: i, o: open, h: high, l: low, c: close});
+      price = close;
+    }
+  }
+
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: 'candlestick',
+    data: { datasets: [{ label: 'Price', data: window.candles }] },
+    options: {
+      plugins: {
+        annotation: {
+          annotations: {
+            entryLine: { type: 'line', yMin: entry, yMax: entry, borderColor: 'blue', borderWidth: 2, label: { content: 'Entry', enabled: true } },
+            slLine: { type: 'line', yMin: sl, yMax: sl, borderColor: 'red', borderWidth: 2, label: { content: 'SL', enabled: true } },
+            tpLine: { type: 'line', yMin: tp, yMax: tp, borderColor: 'green', borderWidth: 2, label: { content: 'TP', enabled: true } }
+          }
+        }
+      }
+    }
+  });
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.4.0"></script>
+</body>
+</html>
