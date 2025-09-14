@@ -162,6 +162,7 @@ function calculate() {
     const targetEl = document.getElementById("target");
     if (targetEl) targetEl.value = Number.isFinite(target) ? target.toFixed( (symbol==="USDJPY"||symbol.endsWith("JPY"))?3:4 ) : "";
   }
+  
   document.getElementById("target").value = target.toFixed(2); // auto-fill
 }
   // Step 6: reward amount and R:R ratio (if target available)
@@ -311,6 +312,7 @@ function calculate() {
   </script>
 </body>
 </html>
+
 
 
 
