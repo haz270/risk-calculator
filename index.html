@@ -126,7 +126,8 @@
         `Symbol: ${symbol}
 Risk Amount: $${riskAmount.toFixed(2)}
 Position Size: ${unitSize.toFixed(2)} units
-Lot Size: ${lotSize.toFixed(4)} lots`;
+console.log("DEBUG:", symbol, "Units:", unitSize, "Lots:", lotSize);
+Lot Size: ${lotSize.toFixed(7)} lots`;
 
       drawChart(entry, stop, target);
     }
@@ -222,3 +223,4 @@ Lot Size: ${lotSize.toFixed(4)} lots`;
   </script>
 </body>
 </html>
+
