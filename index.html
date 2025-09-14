@@ -2,183 +2,222 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Universal Risk Calculator</title>
+  <title>Risk Calculator</title>
+  <!-- Chart.js core -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Chart.js financial plugin for candlesticks -->
   <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
   <style>
-    body { font-family: Arial, sans-serif; background:#f9f9f9; }
-    .container { max-width: 800px; margin: auto; background: #fff; padding: 20px; border-radius: 10px; }
-    label { font-weight: bold; display: block; margin-top: 10px; }
-    input, select, button { width: 100%; padding: 8px; margin-top: 5px; }
-    button { background: #007bff; color: #fff; border: none; cursor: pointer; border-radius: 5px; margin-top: 15px; }
-    button:hover { background: #0056b3; }
-    #result, #csvPreview { margin-top: 20px; padding: 10px; border-radius: 5px; background: #f4f4f4; }
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .container { max-width: 500px; margin: auto; }
+    input, select, button { width: 100%; padding: 8px; margin: 6px 0; }
     canvas { margin-top: 20px; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>Universal Risk Calculator</h2>
+    <h2>Trading Risk Calculator</h2>
 
-    <label>Market:</label>
-    <select id="symbol">
-      <option value="XAUUSD">Gold (XAUUSD)</option>
-      <option value="EURUSD">EUR/USD</option>
-      <option value="GBPUSD">GBP/USD</option>
-      <option value="USDJPY">USD/JPY</option>
-      <option value="AAPL">Apple Stock (AAPL)</option>
-      <option value="TSLA">Tesla Stock (TSLA)</option>
-      <option value="BTCUSD">Bitcoin (BTCUSD)</option>
-      <option value="ETHUSD">Ethereum (ETHUSD)</option>
-    </select>
+    <label for="symbol">Market Symbol:</label>
+    <input list="symbols" id="symbol" placeholder="Enter market symbol">
+    <datalist id="symbols">
+      <!-- Forex majors -->
+      <option value="EURUSD">
+      <option value="GBPUSD">
+      <option value="USDJPY">
+      <option value="USDCHF">
+      <option value="AUDUSD">
+      <option value="USDCAD">
+      <option value="NZDUSD">
 
-    <label>Account Balance:</label>
-    <input type="number" id="balance" placeholder="Enter account balance">
+      <!-- Commodities -->
+      <option value="XAUUSD"> <!-- Gold -->
+      <option value="XAGUSD"> <!-- Silver -->
+      <option value="WTIUSD"> <!-- Crude Oil -->
+      <option value="NGAS">   <!-- Natural Gas -->
 
-    <label>Account Currency:</label>
-    <select id="currency">
-      <option value="USD">USD</option>
-      <option value="EUR">EUR</option>
-      <option value="GBP">GBP</option>
-      <option value="JPY">JPY</option>
-      <option value="PKR">PKR</option>
-    </select>
+      <!-- Indices -->
+      <option value="US30">
+      <option value="NAS100">
+      <option value="SPX500">
 
-    <label>Risk %:</label>
+      <!-- Crypto -->
+      <option value="BTCUSD">
+      <option value="ETHUSD">
+      <option value="BNBUSD">
+      <option value="XRPUSD">
+
+      <!-- Stocks -->
+      <option value="AAPL">
+      <option value="TSLA">
+      <option value="AMZN">
+      <option value="MSFT">
+      <option value="GOOGL">
+    </datalist>
+
+    <label for="accountSize">Account Size ($):</label>
+    <input type="number" id="accountSize" placeholder="e.g. 10000">
+
+    <label for="riskPercent">Risk % per Trade:</label>
     <input type="number" id="riskPercent" placeholder="e.g. 1">
 
-    <label>Entry Price:</label>
-    <input type="number" id="entry" placeholder="Enter entry price">
+    <label for="entry">Entry Price:</label>
+    <input type="number" id="entry" placeholder="e.g. 1950">
 
-    <label>Stop Loss:</label>
-    <input type="number" id="sl" placeholder="Enter stop loss">
+    <label for="stop">Stop Loss Price:</label>
+    <input type="number" id="stop" placeholder="e.g. 1940">
 
-    <label>Take Profit:</label>
-    <input type="number" id="tp" placeholder="Enter take profit">
+    <label for="target">Target Price:</label>
+    <input type="number" id="target" placeholder="e.g. 1970">
 
     <button onclick="calculate()">Calculate</button>
-    <button onclick="exportCSV()">Export MT5 CSV</button>
+    <button onclick="exportCSV()">Export MT5 Order (CSV)</button>
 
-    <div id="result"></div>
+    <h3>Result:</h3>
+    <pre id="result"></pre>
 
-    <h3>CSV Preview</h3>
-    <pre id="csvPreview"></pre>
-
-    <canvas id="chart" width="600" height="400"></canvas>
+    <canvas id="chart" width="400" height="200"></canvas>
   </div>
 
   <script>
-    let lastCalc = {};
-    let chart;
+    function getLotSize(symbol, units) {
+      symbol = symbol.toUpperCase();
+
+      if (symbol.includes("USD") && symbol.length === 6) {
+        // Forex pairs like EURUSD
+        return units / 100000;
+      } else if (symbol === "XAUUSD") {
+        // Gold
+        return units / 100;
+      } else if (symbol === "XAGUSD") {
+        // Silver
+        return units / 5000;
+      } else if (symbol.includes("WTI") || symbol.includes("OIL")) {
+        // Crude Oil
+        return units / 1000;
+      } else if (["BTCUSD", "ETHUSD", "BNBUSD", "XRPUSD"].includes(symbol)) {
+        // Crypto
+        return units / 1;
+      } else {
+        // Stocks or fallback
+        return units / 1;
+      }
+    }
 
     function calculate() {
-      const symbol = document.getElementById('symbol').value;
-      const balance = parseFloat(document.getElementById('balance').value);
-      const currency = document.getElementById('currency').value;
-      const riskPercent = parseFloat(document.getElementById('riskPercent').value);
-      const entry = parseFloat(document.getElementById('entry').value);
-      const sl = parseFloat(document.getElementById('sl').value);
-      const tp = parseFloat(document.getElementById('tp').value);
+      let symbol = document.getElementById("symbol").value;
+      let accountSize = parseFloat(document.getElementById("accountSize").value);
+      let riskPercent = parseFloat(document.getElementById("riskPercent").value);
+      let entry = parseFloat(document.getElementById("entry").value);
+      let stop = parseFloat(document.getElementById("stop").value);
+      let target = parseFloat(document.getElementById("target").value);
 
-      if (isNaN(balance) || isNaN(riskPercent) || isNaN(entry) || isNaN(sl) || isNaN(tp)) {
-        alert("Please fill in all fields!");
+      if (isNaN(accountSize) || isNaN(riskPercent) || isNaN(entry) || isNaN(stop) || isNaN(target)) {
+        alert("Please fill in all fields.");
         return;
       }
 
-      const riskAmount = balance * (riskPercent / 100);
-      const stopDistance = Math.abs(entry - sl);
-      const positionSize = riskAmount / stopDistance;
-      const reward = Math.abs(tp - entry) * positionSize;
-      const rr = (reward / riskAmount).toFixed(2);
+      let riskAmount = accountSize * (riskPercent / 100);
+      let stopDistance = Math.abs(entry - stop);
+      let unitSize = riskAmount / stopDistance;
+      let lotSize = getLotSize(symbol, unitSize);
 
-      // Save last calculation
-      lastCalc = { symbol, entry, sl, tp, positionSize, currency };
+      document.getElementById("result").innerText =
+        `Symbol: ${symbol}
+Risk Amount: $${riskAmount.toFixed(2)}
+Position Size: ${unitSize.toFixed(2)} units
+Lot Size: ${lotSize.toFixed(2)} lots`;
 
-      let positionText = `${positionSize.toFixed(2)} units`;
-      if (symbol.includes("USD") && !symbol.startsWith("XAU")) {
-        positionText += ` (${(positionSize/100000).toFixed(2)} lots)`;
-      }
-
-      document.getElementById('result').innerHTML =
-        `<b>Risk Amount:</b> ${riskAmount.toFixed(2)} ${currency}<br>
-         <b>Position Size:</b> ${positionText}<br>
-         <b>Potential Reward:</b> ${reward.toFixed(2)} ${currency}<br>
-         <b>R:R Ratio:</b> ${rr}`;
-
-      // CSV preview
-      let header = "Symbol,Entry,StopLoss,TakeProfit,Volume,Currency\n";
-      let row = `${symbol},${entry},${sl},${tp},${positionSize.toFixed(2)},${currency}\n`;
-      document.getElementById("csvPreview").textContent = header + row;
-
-      drawChart(entry, sl, tp);
+      drawChart(entry, stop, target);
     }
 
-    function exportCSV() {
-      if (!lastCalc.symbol) {
-        alert("Please calculate first!");
-        return;
-      }
-      let header = "Symbol,Entry,StopLoss,TakeProfit,Volume,Currency\n";
-      let row = `${lastCalc.symbol},${lastCalc.entry},${lastCalc.sl},${lastCalc.tp},${lastCalc.positionSize.toFixed(2)},${lastCalc.currency}\n`;
+    function drawChart(entry, stop, target) {
+      const ctx = document.getElementById("chart").getContext("2d");
+      if (window.tradeChart) window.tradeChart.destroy();
 
-      let csvContent = header + row;
-      let blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      let link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "mt5_order.csv";
-      link.click();
-    }
-
-    function drawChart(entry, sl, tp) {
-      const ctx = document.getElementById('chart').getContext('2d');
-      if (chart) chart.destroy();
-
-      // Generate random candles around entry
+      // Generate 20 random candles around entry
       let candles = [];
       let base = entry;
       for (let i = 0; i < 20; i++) {
-        let open = base + (Math.random() - 0.5) * 2;
-        let close = base + (Math.random() - 0.5) * 2;
-        let high = Math.max(open, close) + Math.random() * 1;
-        let low = Math.min(open, close) - Math.random() * 1;
-        candles.push({ t: i, o: open, h: high, l: low, c: close });
+        let open = base + (Math.random() - 0.5) * 5;
+        let close = open + (Math.random() - 0.5) * 5;
+        let high = Math.max(open, close) + Math.random() * 2;
+        let low = Math.min(open, close) - Math.random() * 2;
+        candles.push({ x: i, o: open, h: high, l: low, c: close });
+        base = close;
       }
 
-      chart = new Chart(ctx, {
-        type: 'candlestick',
-        data: { datasets: [{ label: 'Price', data: candles }] },
+      window.tradeChart = new Chart(ctx, {
+        type: "candlestick",
+        data: {
+          datasets: [{
+            label: "Price",
+            data: candles
+          }]
+        },
         options: {
-          plugins: { legend: { display: false }},
-          scales: { x: { display: false }}
-        }
-      });
-
-      // Add lines for Entry, SL, TP
-      const line = (y, color, label) => {
-        return {
-          id: label,
-          beforeDatasetsDraw(chart) {
-            const { ctx, chartArea: { top, bottom, left, right }, scales: { y: yScale } } = chart;
-            ctx.save();
-            ctx.strokeStyle = color;
-            ctx.setLineDash([5,5]);
-            ctx.beginPath();
-            ctx.moveTo(left, yScale.getPixelForValue(y));
-            ctx.lineTo(right, yScale.getPixelForValue(y));
-            ctx.stroke();
-            ctx.fillStyle = color;
-            ctx.fillText(label + " " + y, left + 5, yScale.getPixelForValue(y) - 5);
-            ctx.restore();
+          responsive: true,
+          scales: {
+            x: { type: "linear" },
+            y: { beginAtZero: false }
+          },
+          plugins: {
+            annotation: {
+              annotations: {
+                entry: {
+                  type: "line",
+                  yMin: entry,
+                  yMax: entry,
+                  borderColor: "green",
+                  borderWidth: 2,
+                  label: { content: "Entry", enabled: true }
+                },
+                stop: {
+                  type: "line",
+                  yMin: stop,
+                  yMax: stop,
+                  borderColor: "red",
+                  borderWidth: 2,
+                  label: { content: "Stop", enabled: true }
+                },
+                target: {
+                  type: "line",
+                  yMin: target,
+                  yMax: target,
+                  borderColor: "orange",
+                  borderWidth: 2,
+                  label: { content: "Target", enabled: true }
+                }
+              }
+            }
           }
         }
-      };
+      });
+    }
 
-      chart.options.plugins.annotation = {};
-      chart.options.plugins.annotation.entryLine = line(entry, "blue", "Entry");
-      chart.options.plugins.annotation.slLine = line(sl, "red", "SL");
-      chart.options.plugins.annotation.tpLine = line(tp, "green", "TP");
+    function exportCSV() {
+      let symbol = document.getElementById("symbol").value;
+      let accountSize = parseFloat(document.getElementById("accountSize").value);
+      let riskPercent = parseFloat(document.getElementById("riskPercent").value);
+      let entry = parseFloat(document.getElementById("entry").value);
+      let stop = parseFloat(document.getElementById("stop").value);
+      let target = parseFloat(document.getElementById("target").value);
 
-      chart.update();
+      let riskAmount = accountSize * (riskPercent / 100);
+      let stopDistance = Math.abs(entry - stop);
+      let unitSize = riskAmount / stopDistance;
+      let lotSize = getLotSize(symbol, unitSize);
+
+      let csvContent = "data:text/csv;charset=utf-8,"
+        + "Symbol,Entry,StopLoss,Target,Units,Lots\n"
+        + `${symbol},${entry},${stop},${target},${unitSize.toFixed(2)},${lotSize.toFixed(2)}\n`;
+
+      let link = document.createElement("a");
+      link.setAttribute("href", encodeURI(csvContent));
+      link.setAttribute("download", "mt5_order.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   </script>
 </body>
