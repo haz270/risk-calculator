@@ -80,29 +80,44 @@
   </div>
 
   <script>
-    function getLotSize(symbol, units) {
-      symbol = symbol.toUpperCase();
-
-      if (symbol.includes("USD") && symbol.length === 6) {
-        // Forex pairs like EURUSD
-        return units / 100000;
-      } else if (symbol === "XAUUSD") {
-        // Gold
-        return units / 100;
-      } else if (symbol === "XAGUSD") {
-        // Silver
-        return units / 5000;
-      } else if (symbol.includes("WTI") || symbol.includes("OIL")) {
-        // Crude Oil
-        return units / 1000;
-      } else if (["BTCUSD", "ETHUSD", "BNBUSD", "XRPUSD"].includes(symbol)) {
-        // Crypto
-        return units / 1;
-      } else {
-        // Stocks or fallback
-        return units / 1;
-      }
-    }
+    // Calculate lot size based on symbol and units
+function getLotSize(symbol, units) {
+  // ✅ Forex majors/minors
+  if (symbol.endsWith("USD") && symbol.length === 6) {
+    return units / 100000; // 1 lot = 100,000 units
+  } 
+  
+  // ✅ Gold (XAUUSD)
+  else if (symbol === "XAUUSD") {
+    return units / 100; // 1 lot = 100 oz
+  } 
+  
+  // ✅ Silver (XAGUSD)
+  else if (symbol === "XAGUSD") {
+    return units / 5000; // 1 lot = 5000 oz
+  } 
+  
+  // ✅ Oil (WTI / USOIL / Brent)
+  else if (symbol === "WTI" || symbol === "USOIL" || symbol === "BRENT") {
+    return units / 1000; // 1 lot = 1000 barrels
+  } 
+  
+  // ✅ Crypto (common broker defaults – check yours!)
+  else if (symbol === "BTCUSD") {
+    return units / 1;   // 1 lot = 1 BTC
+  } else if (symbol === "ETHUSD") {
+    return units / 10;  // 1 lot = 10 ETH
+  } else if (symbol === "LTCUSD") {
+    return units / 100; // 1 lot = 100 LTC
+  } else if (symbol === "XRPUSD") {
+    return units / 10000; // 1 lot = 10,000 XRP
+  } 
+  
+  // ✅ Default fallback (treat like Forex)
+  else {
+    return units / 100000;
+  }
+}
 
     function calculate() {
       let symbol = document.getElementById("symbol").value;
@@ -222,5 +237,6 @@ Lot Size: ${lotSize.toFixed(7)} lots`;
   </script>
 </body>
 </html>
+
 
 
