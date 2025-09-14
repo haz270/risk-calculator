@@ -120,62 +120,92 @@ function getContractSize(symbol) {
 
 // ---------- REPLACE your old calculate() with this ----------
 function calculate() {
-  // get values from your inputs - change IDs if yours are different
-  const symbol = document.getElementById("symbol").value.trim().toUpperCase();
-  const accountSize = parseFloat(document.getElementById("accountSize")?.value || document.getElementById("balance")?.value || 0);
-  const riskPercent = parseFloat(document.getElementById("risk")?.value || document.getElementById("riskPercent")?.value || 0);
-  const entry = parseFloat(document.getElementById("entry").value);
-  const stop = parseFloat(document.getElementById("stop").value);
-  const target = parseFloat(document.getElementById("target")?.value || document.getElementById("tp")?.value || 0);
+  // inputs (support multiple id names for compatibility)
+  const symbol = (document.getElementById("symbol")?.value || "").toUpperCase().trim();
+  const accountSize = parseFloat((document.getElementById("accountSize")?.value) || (document.getElementById("balance")?.value) || 0);
+  const riskPercent = parseFloat((document.getElementById("risk")?.value) || (document.getElementById("riskPercent")?.value) || 0);
+  const entry = parseFloat(document.getElementById("entry")?.value);
+  const stop = parseFloat(document.getElementById("stop")?.value);
+  const rrInput = parseFloat((document.getElementById("rrInput")?.value) || (document.getElementById("rr")?.value) || 0);
+  const direction = (document.getElementById("direction")?.value || "buy").toLowerCase();
 
-  if (!symbol) { alert("Enter symbol (e.g. XAUUSD)."); return; }
-  if (isNaN(accountSize) || isNaN(riskPercent) || isNaN(entry) || isNaN(stop)) {
-    alert("Please fill numeric Account, Risk%, Entry and Stop fields.");
+  // output element (support "results" or "result")
+  const outputEl = document.getElementById("results") || document.getElementById("result") || document.getElementById("resultArea");
+
+  // basic validation
+  if (!symbol) { alert("Please enter a symbol (e.g. XAUUSD, EURUSD)."); return; }
+  if (![accountSize, riskPercent, entry, stop].every(v => typeof v === "number" && !isNaN(v))) {
+    alert("Please fill Account, Risk%, Entry and Stop with valid numbers.");
     return;
   }
 
-  // Step 1: risk in account currency
+  // Step 1: risk amount
   const riskAmount = accountSize * (riskPercent / 100);
 
-  // Step 2: price difference (in price units)
-  const priceDiff = Math.abs(entry - stop);
-  if (priceDiff === 0) { alert("Entry and Stop must be different."); return; }
+  // Step 2: stop difference
+  const stopDiff = Math.abs(entry - stop);
+  if (stopDiff === 0) { alert("Entry and Stop must be different."); return; }
 
-  // Step 3: compute units (base units: oz, shares, base currency units, coins...)
-  // units = how many base-units you would hold so that priceDiff * units = riskAmount
-  const units = riskAmount / priceDiff;
+  // Step 3: units (base units like oz, shares, coins, or base currency units)
+  const units = riskAmount / stopDiff;
 
-  // Step 4: convert units -> lots using contract size for this symbol
-  const contractSize = getContractSize(symbol); // e.g. 100 for XAUUSD, 100000 for EURUSD
+  // Step 4: contract size & lots
+  const contractSize = (typeof getContractSize === "function") ? getContractSize(symbol) : 1;
   const lots = units / contractSize;
 
-  // Format display: show more decimals for small lot sizes
-  const lotDisplay = lots.toFixed(6);     // 6 decimals (safe for micro-lots)
+  // Step 5: handle R:R input -> auto-calc target if rrInput provided (>0)
+  let target = parseFloat(document.getElementById("target")?.value || NaN);
+  if (rrInput > 0) {
+    const rewardDiff = rrInput * stopDiff;
+    if (direction === "buy") target = entry + rewardDiff; else target = entry - rewardDiff;
+    // show target in UI (format with reasonable decimals)
+    const targetEl = document.getElementById("target");
+    if (targetEl) targetEl.value = Number.isFinite(target) ? target.toFixed( (symbol==="USDJPY"||symbol.endsWith("JPY"))?3:4 ) : "";
+  }
+
+  // Step 6: reward amount and R:R ratio (if target available)
+  let rewardAmount = 0, rrRatio = 0;
+  if (Number.isFinite(target)) {
+    const rewardDiff = Math.abs(target - entry);
+    rewardAmount = rewardDiff * units;               // in account currency
+    rrRatio = (riskAmount>0) ? (rewardAmount / riskAmount) : 0;
+  }
+
+  // format strings
+  const lotDisplay = lots.toFixed(6);              // high precision for micro accounts
   const unitsDisplay = (contractSize === 1) ? units.toFixed(4) : units.toFixed(2);
 
-  // Unit label (human friendly)
+  // human-friendly unit label
   let unitLabel = "units";
-  if (symbol === "XAUUSD") unitLabel = "oz";
-  else if (symbol === "XAGUSD") unitLabel = "oz";
+  if (symbol === "XAUUSD" || symbol === "XAGUSD") unitLabel = "oz";
   else if (symbol.startsWith("BTC") || symbol.includes("BTC")) unitLabel = "coins";
   else if (contractSize === 1) unitLabel = "shares/coins";
 
-  // Show result in your result element (change ID if needed)
-  const resultText =
-    `Symbol: ${symbol}\n` +
-    `Risk Amount: ${riskAmount.toFixed(2)} (account currency)\n` +
-    `Price difference (entry↔stop): ${priceDiff}\n` +
-    `Position Size: ${unitsDisplay} ${unitLabel}\n` +
-    `Lot Size: ${lotDisplay} lots\n` +
-    (isFinite(target) ? `Target: ${target}` : "");
+  // Trade command (BUY/SELL)
+  const tradeCmd = `${direction.toUpperCase()} ${symbol}`;
 
-  document.getElementById("result").innerText = resultText;
+  // build result text (HTML)
+  const resultHTML = `
+    <strong>Trade Command:</strong> ${tradeCmd}<br>
+    <strong>Risk Amount:</strong> $${riskAmount.toFixed(2)}<br>
+    <strong>Price difference (entry↔stop):</strong> ${stopDiff}<br>
+    <strong>Position Size:</strong> ${unitsDisplay} ${unitLabel}<br>
+    <strong>Lot Size:</strong> ${lotDisplay} lots<br>
+    ${ Number.isFinite(target) ? `<strong>Target:</strong> ${target.toFixed(4)}<br>` : "" }
+    ${ rewardAmount>0 ? `<strong>Potential Reward:</strong> $${rewardAmount.toFixed(2)}<br>` : "" }
+    ${ rrRatio>0 ? `<strong>R:R Ratio:</strong> ${rrRatio.toFixed(2)}<br>` : "" }
+  `;
 
-  // save lastCalc for CSV etc. if you use it
-  window.lastCalc = { symbol, entry, stop, target, units, lots, accountSize, riskAmount };
+  if (outputEl) outputEl.innerHTML = resultHTML;
 
-  // (optional) update chart
-  if (typeof drawChart === "function") drawChart(entry, stop, target);
+  // save lastCalc for CSV/export
+  window.lastCalc = {
+    tradeCmd, symbol, direction, entry, stop, target: Number.isFinite(target)?target:null,
+    units, lots, riskAmount, rewardAmount, rrRatio, contractSize
+  };
+
+  // redraw chart if you have a drawChart function
+  if (typeof drawChart === "function") drawChart(entry, stop, target, direction);
 }
     function drawChart(entry, stop, target) {
       const ctx = document.getElementById("chart").getContext("2d");
@@ -268,6 +298,7 @@ function calculate() {
   </script>
 </body>
 </html>
+
 
 
 
