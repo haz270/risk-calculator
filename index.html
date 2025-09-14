@@ -271,33 +271,46 @@ function calculate() {
       });
     }
 
-    function exportCSV() {
-      let symbol = document.getElementById("symbol").value;
-      let accountSize = parseFloat(document.getElementById("accountSize").value);
-      let riskPercent = parseFloat(document.getElementById("riskPercent").value);
-      let entry = parseFloat(document.getElementById("entry").value);
-      let stop = parseFloat(document.getElementById("stop").value);
-      let target = parseFloat(document.getElementById("target").value);
+   function exportCSV() {
+  // ensure we have a lastCalc (if user didn't press Calculate, compute now)
+  if (!window.lastCalc) {
+    alert("Please Calculate first so CSV contains the latest trade values.");
+    return;
+  }
 
-      let riskAmount = accountSize * (riskPercent / 100);
-      let stopDistance = Math.abs(entry - stop);
-      let unitSize = riskAmount / stopDistance;
-      let lotSize = getLotSize(symbol, unitSize);
+  const L = window.lastCalc;
+  // CSV header includes trade command, symbol, direction, entry, stop, target, units, lots, potential reward, RR
+  const header = "TradeCommand,Symbol,Direction,Entry,StopLoss,TakeProfit,Units,Lots,PotentialReward,R_Ratio\n";
+  const row = [
+    `"${L.tradeCmd}"`,
+    L.symbol || "",
+    L.direction || "",
+    (L.entry!==undefined && L.entry!==null) ? L.entry : "",
+    (L.stop!==undefined && L.stop!==null) ? L.stop : "",
+    (L.target!==undefined && L.target!==null) ? L.target : "",
+    (L.units!==undefined) ? L.units.toFixed(2) : "",
+    (L.lots!==undefined) ? L.lots.toFixed(6) : "",
+    (L.rewardAmount!==undefined) ? L.rewardAmount.toFixed(2) : "",
+    (L.rrRatio!==undefined) ? L.rrRatio.toFixed(2) : ""
+  ].join(",");
 
-      let csvContent = "data:text/csv;charset=utf-8,"
-        + "Symbol,Entry,StopLoss,Target,Units,Lots\n"
-        + `${symbol},${entry},${stop},${target},${unitSize.toFixed(2)},${lotSize.toFixed(2)}\n`;
+  const csvContent = header + row + "\n";
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "mt5_order.csv";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 
-      let link = document.createElement("a");
-      link.setAttribute("href", encodeURI(csvContent));
-      link.setAttribute("download", "mt5_order.csv");
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
+  // optional: update csvPreview area if present
+  const previewEl = document.getElementById("csvPreview");
+  if (previewEl) previewEl.textContent = csvContent;
+}
   </script>
 </body>
 </html>
+
 
 
 
