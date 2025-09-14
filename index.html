@@ -153,16 +153,19 @@ function calculate() {
   const contractSize = (typeof getContractSize === "function") ? getContractSize(symbol) : 1;
   const lots = units / contractSize;
 
-  // Step 5: handle R:R input -> auto-calc target if rrInput provided (>0)
-  let target = parseFloat(document.getElementById("target")?.value || NaN);
-  if (rrInput > 0) {
-    const rewardDiff = rrInput * stopDiff;
-    if (direction === "buy") target = entry + rewardDiff; else target = entry - rewardDiff;
-    // show target in UI (format with reasonable decimals)
-    const targetEl = document.getElementById("target");
-    if (targetEl) targetEl.value = Number.isFinite(target) ? target.toFixed( (symbol==="USDJPY"||symbol.endsWith("JPY"))?3:4 ) : "";
+// Step 5: if user provided R:R, auto-calc target
+if (rrInput > 0) {
+  const rewardDiff = rrInput * stopDiff;
+  const direction = document.getElementById("direction").value;
+
+  if (direction === "buy") {
+    target = entry + rewardDiff;
+  } else {
+    target = entry - rewardDiff;
   }
 
+  document.getElementById("target").value = target.toFixed(2); // auto-fill
+}
   // Step 6: reward amount and R:R ratio (if target available)
   let rewardAmount = 0, rrRatio = 0;
   if (Number.isFinite(target)) {
@@ -310,6 +313,7 @@ function calculate() {
   </script>
 </body>
 </html>
+
 
 
 
