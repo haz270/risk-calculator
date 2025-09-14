@@ -127,7 +127,7 @@ function calculate() {
   const entry = parseFloat(document.getElementById("entry")?.value);
   const stop = parseFloat(document.getElementById("stop")?.value);
   const rrInput = parseFloat((document.getElementById("rrInput")?.value) || (document.getElementById("rr")?.value) || 0);
-  const direction = (document.getElementById("direction")?.value || "buy").toLowerCase();
+  const direction = document.getElementById("direction").value; // ✅ Buy or Sell
 
   // output element (support "results" or "result")
   const outputEl = document.getElementById("results") || document.getElementById("result") || document.getElementById("resultArea");
@@ -310,6 +310,7 @@ function calculate() {
   </script>
 </body>
 </html>
+
 
 
 
