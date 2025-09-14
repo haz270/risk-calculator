@@ -80,72 +80,103 @@
   </div>
 
   <script>
-    // Calculate lot size based on symbol and units
-function getLotSize(symbol, units) {
-  // ✅ Forex majors/minors
-  if (symbol.endsWith("USD") && symbol.length === 6) {
-    return units / 100000; // 1 lot = 100,000 units
-  } 
-  
-  // ✅ Gold (XAUUSD)
-  else if (symbol === "XAUUSD") {
-    return units / 100; // 1 lot = 100 oz
-  } 
-  
-  // ✅ Silver (XAGUSD)
-  else if (symbol === "XAGUSD") {
-    return units / 5000; // 1 lot = 5000 oz
-  } 
-  
-  // ✅ Oil (WTI / USOIL / Brent)
-  else if (symbol === "WTI" || symbol === "USOIL" || symbol === "BRENT") {
-    return units / 1000; // 1 lot = 1000 barrels
-  } 
-  
-  // ✅ Crypto (common broker defaults – check yours!)
-  else if (symbol === "BTCUSD") {
-    return units / 1;   // 1 lot = 1 BTC
-  } else if (symbol === "ETHUSD") {
-    return units / 10;  // 1 lot = 10 ETH
-  } else if (symbol === "LTCUSD") {
-    return units / 100; // 1 lot = 100 LTC
-  } else if (symbol === "XRPUSD") {
-    return units / 10000; // 1 lot = 10,000 XRP
-  } 
-  
-  // ✅ Default fallback (treat like Forex)
-  else {
-    return units / 100000;
-  }
+  // ---------- REPLACE your old getLotSize() with this ----------
+function getContractSize(symbol) {
+  // return how many "units" are in 1 standard lot for the given symbol
+  // adjust these defaults to match your broker if needed
+  symbol = (symbol || "").toUpperCase();
+
+  const map = {
+    // Forex majors/minors (1 lot = 100,000 base units)
+    "EURUSD": 100000, "GBPUSD": 100000, "USDJPY": 100000, "AUDUSD": 100000,
+    "USDCAD": 100000, "USDCHF": 100000, "NZDUSD": 100000,
+
+    // Metals / Commodities (common contract sizes)
+    "XAUUSD": 100,    // Gold: 1 lot = 100 oz
+    "XAGUSD": 5000,   // Silver: 1 lot = 5000 oz
+    "WTIUSD": 1000,   // Oil (WTI): 1 lot = 1000 barrels (common)
+    "USOIL": 1000,
+    "BRENT": 1000,
+
+    // Crypto (common defaults - verify with your broker)
+    "BTCUSD": 1,      // 1 lot = 1 BTC (common)
+    "ETHUSD": 1,      // many brokers use 1 lot = 1 ETH (or sometimes 10) -> check broker
+    "LTCUSD": 100,    // example
+    "XRPUSD": 10000,  // example
+
+    // Stocks (1 lot = 1 share)
+    "AAPL": 1, "TSLA": 1, "MSFT": 1, "AMZN": 1, "GOOGL": 1
+  };
+
+  if (map[symbol]) return map[symbol];
+
+  // sensible defaults:
+  // - if looks like a forex pair (6 chars and ends with USD) assume 100000
+  if (symbol.length === 6 && symbol.endsWith("USD")) return 100000;
+
+  // otherwise fallback to 1 (stocks/crypto single-share/coin style)
+  return 1;
 }
 
-    function calculate() {
-      let symbol = document.getElementById("symbol").value;
-      let accountSize = parseFloat(document.getElementById("accountSize").value);
-      let riskPercent = parseFloat(document.getElementById("riskPercent").value);
-      let entry = parseFloat(document.getElementById("entry").value);
-      let stop = parseFloat(document.getElementById("stop").value);
-      let target = parseFloat(document.getElementById("target").value);
+// ---------- REPLACE your old calculate() with this ----------
+function calculate() {
+  // get values from your inputs - change IDs if yours are different
+  const symbol = document.getElementById("symbol").value.trim().toUpperCase();
+  const accountSize = parseFloat(document.getElementById("accountSize")?.value || document.getElementById("balance")?.value || 0);
+  const riskPercent = parseFloat(document.getElementById("risk")?.value || document.getElementById("riskPercent")?.value || 0);
+  const entry = parseFloat(document.getElementById("entry").value);
+  const stop = parseFloat(document.getElementById("stop").value);
+  const target = parseFloat(document.getElementById("target")?.value || document.getElementById("tp")?.value || 0);
 
-      if (isNaN(accountSize) || isNaN(riskPercent) || isNaN(entry) || isNaN(stop) || isNaN(target)) {
-        alert("Please fill in all fields.");
-        return;
-      }
+  if (!symbol) { alert("Enter symbol (e.g. XAUUSD)."); return; }
+  if (isNaN(accountSize) || isNaN(riskPercent) || isNaN(entry) || isNaN(stop)) {
+    alert("Please fill numeric Account, Risk%, Entry and Stop fields.");
+    return;
+  }
 
-      let riskAmount = accountSize * (riskPercent / 100);
-      let stopDistance = Math.abs(entry - stop);
-      let unitSize = riskAmount / stopDistance;
-      let lotSize = getLotSize(symbol, unitSize);
+  // Step 1: risk in account currency
+  const riskAmount = accountSize * (riskPercent / 100);
 
-      document.getElementById("result").innerText =
-        `Symbol: ${symbol}
-Risk Amount: $${riskAmount.toFixed(2)}
-Position Size: ${unitSize.toFixed(2)} units
-Lot Size: ${lotSize.toFixed(7)} lots`;
+  // Step 2: price difference (in price units)
+  const priceDiff = Math.abs(entry - stop);
+  if (priceDiff === 0) { alert("Entry and Stop must be different."); return; }
 
-      drawChart(entry, stop, target);
-    }
+  // Step 3: compute units (base units: oz, shares, base currency units, coins...)
+  // units = how many base-units you would hold so that priceDiff * units = riskAmount
+  const units = riskAmount / priceDiff;
 
+  // Step 4: convert units -> lots using contract size for this symbol
+  const contractSize = getContractSize(symbol); // e.g. 100 for XAUUSD, 100000 for EURUSD
+  const lots = units / contractSize;
+
+  // Format display: show more decimals for small lot sizes
+  const lotDisplay = lots.toFixed(6);     // 6 decimals (safe for micro-lots)
+  const unitsDisplay = (contractSize === 1) ? units.toFixed(4) : units.toFixed(2);
+
+  // Unit label (human friendly)
+  let unitLabel = "units";
+  if (symbol === "XAUUSD") unitLabel = "oz";
+  else if (symbol === "XAGUSD") unitLabel = "oz";
+  else if (symbol.startsWith("BTC") || symbol.includes("BTC")) unitLabel = "coins";
+  else if (contractSize === 1) unitLabel = "shares/coins";
+
+  // Show result in your result element (change ID if needed)
+  const resultText =
+    `Symbol: ${symbol}\n` +
+    `Risk Amount: ${riskAmount.toFixed(2)} (account currency)\n` +
+    `Price difference (entry↔stop): ${priceDiff}\n` +
+    `Position Size: ${unitsDisplay} ${unitLabel}\n` +
+    `Lot Size: ${lotDisplay} lots\n` +
+    (isFinite(target) ? `Target: ${target}` : "");
+
+  document.getElementById("result").innerText = resultText;
+
+  // save lastCalc for CSV etc. if you use it
+  window.lastCalc = { symbol, entry, stop, target, units, lots, accountSize, riskAmount };
+
+  // (optional) update chart
+  if (typeof drawChart === "function") drawChart(entry, stop, target);
+}
     function drawChart(entry, stop, target) {
       const ctx = document.getElementById("chart").getContext("2d");
       if (window.tradeChart) window.tradeChart.destroy();
@@ -237,6 +268,7 @@ Lot Size: ${lotSize.toFixed(7)} lots`;
   </script>
 </body>
 </html>
+
 
 
 
