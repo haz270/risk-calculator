@@ -2,193 +2,198 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Risk Calculator</title>
+  <title>Risk Calculator with Live Chart</title>
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
-  <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    .container { max-width: 500px; margin: auto; }
-    input, select, button { width: 100%; padding: 8px; margin: 6px 0; }
-    canvas, #liveChart { margin-top: 20px; }
-    #liveChart { width: 100%; height: 400px; border: 1px solid #ccc; }
-    #timeframe { width: auto; margin: 10px 0; }
+    body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 20px; }
+    .container { max-width: 1000px; margin: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    h2 { margin-top: 0; font-size: 20px; }
+    input, select, button { width: 100%; padding: 8px; margin: 6px 0; border: 1px solid #ddd; border-radius: 6px; }
+    button { background: #007bff; color: white; border: none; cursor: pointer; }
+    button:hover { background: #0056b3; }
+    pre { background: #f4f4f4; padding: 10px; border-radius: 6px; }
+    canvas { margin-top: 15px; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2>Trading Risk Calculator</h2>
+    <!-- Card 1: Risk Calculator -->
+    <div class="card">
+      <h2>Trading Risk Calculator</h2>
 
-    <label for="symbol">Market Symbol:</label>
-    <input list="symbols" id="symbol" placeholder="Enter market symbol">
-    <datalist id="symbols">
-      <option value="EURUSD"><option value="GBPUSD"><option value="USDJPY"><option value="USDCHF">
-      <option value="AUDUSD"><option value="USDCAD"><option value="NZDUSD">
-      <option value="XAUUSD"><option value="XAGUSD"><option value="WTIUSD"><option value="NGAS">
-      <option value="US30"><option value="NAS100"><option value="SPX500">
-      <option value="BTCUSDT"><option value="ETHUSDT"><option value="BNBUSDT"><option value="XRPUSDT">
-      <option value="AAPL"><option value="TSLA"><option value="AMZN"><option value="MSFT"><option value="GOOGL">
-    </datalist>
+      <label for="symbol">Market Symbol:</label>
+      <input list="symbols" id="symbol" placeholder="Enter market symbol">
+      <datalist id="symbols">
+        <option value="EURUSD"><option value="GBPUSD"><option value="USDJPY"><option value="USDCHF">
+        <option value="AUDUSD"><option value="USDCAD"><option value="NZDUSD">
+        <option value="XAUUSD"><option value="XAGUSD"><option value="WTIUSD"><option value="NGAS">
+        <option value="US30"><option value="NAS100"><option value="SPX500">
+        <option value="BTCUSDT"><option value="ETHUSDT"><option value="BNBUSDT"><option value="XRPUSDT">
+        <option value="AAPL"><option value="TSLA"><option value="AMZN"><option value="MSFT"><option value="GOOGL">
+      </datalist>
 
-    <label for="accountSize">Account Size ($):</label>
-    <input type="number" id="accountSize" placeholder="e.g. 10000">
+      <label for="accountSize">Account Size ($):</label>
+      <input type="number" id="accountSize" placeholder="e.g. 10000">
 
-    <label for="riskPercent">Risk % per Trade:</label>
-    <input type="number" id="riskPercent" placeholder="e.g. 1">
+      <label for="riskPercent">Risk % per Trade:</label>
+      <input type="number" id="riskPercent" placeholder="e.g. 1">
 
-    <label for="entry">Entry Price:</label>
-    <input type="number" id="entry" placeholder="e.g. 1950">
+      <label for="entry">Entry Price:</label>
+      <input type="number" id="entry" placeholder="e.g. 1950">
 
-    <label for="stop">Stop Loss Price:</label>
-    <input type="number" id="stop" placeholder="e.g. 1940">
+      <label for="stop">Stop Loss Price:</label>
+      <input type="number" id="stop" placeholder="e.g. 1940">
 
-    <label for="target">Target Price:</label>
-    <input type="number" id="target" placeholder="e.g. 1970">
+      <label for="target">Target Price:</label>
+      <input type="number" id="target" placeholder="e.g. 1970">
 
-    <label for="direction">Direction:</label>
-    <select id="direction">
-      <option value="buy">Buy (Long)</option>
-      <option value="sell">Sell (Short)</option>
-    </select>
-    <br><br>
+      <label for="direction">Direction:</label>
+      <select id="direction">
+        <option value="buy">Buy (Long)</option>
+        <option value="sell">Sell (Short)</option>
+      </select>
+      
+      <button onclick="calculate()">Calculate</button>
+      <button onclick="exportCSV()">Export MT5 Order (CSV)</button>
 
-    <button onclick="calculate()">Calculate</button>
-    <button onclick="exportCSV()">Export MT5 Order (CSV)</button>
+      <h3>Result:</h3>
+      <pre id="result"></pre>
+    </div>
 
-    <h3>Result:</h3>
-    <pre id="result"></pre>
+    <!-- Card 2: Live Chart -->
+    <div class="card">
+      <h2>Live Chart</h2>
+      
+      <label>Timeframe</label>
+      <select id="timeframe" onchange="updateChart()">
+        <option value="1m">1 Minute</option>
+        <option value="5m">5 Minutes</option>
+        <option value="15m">15 Minutes</option>
+        <option value="1h" selected>1 Hour</option>
+        <option value="1d">1 Day</option>
+      </select>
 
-    <h3>Live Chart</h3>
-    <label for="timeframe">Timeframe:</label>
-    <select id="timeframe" onchange="reloadChart()">
-      <option value="1min">1m</option>
-      <option value="5min">5m</option>
-      <option value="15min">15m</option>
-      <option value="1h" selected>1h</option>
-      <option value="4h">4h</option>
-      <option value="1day">1d</option>
-    </select>
-
-    <div id="liveChart"></div>
+      <canvas id="chartCanvas" height="300"></canvas>
+    </div>
   </div>
 
-<script>
-// -------- Contract size lookup ----------
-function getContractSize(symbol) {
-  symbol = (symbol || "").toUpperCase();
-  const map = {
-    "EURUSD": 100000, "GBPUSD": 100000, "USDJPY": 100000, "AUDUSD": 100000,
-    "USDCAD": 100000, "USDCHF": 100000, "NZDUSD": 100000,
-    "XAUUSD": 100, "XAGUSD": 5000, "WTIUSD": 1000, "USOIL": 1000, "BRENT": 1000,
-    "BTCUSD": 1, "ETHUSD": 1, "LTCUSD": 100, "XRPUSD": 10000,
-    "AAPL": 1, "TSLA": 1, "MSFT": 1, "AMZN": 1, "GOOGL": 1
-  };
-  if (map[symbol]) return map[symbol];
-  if (symbol.length === 6 && symbol.endsWith("USD")) return 100000;
-  return 1;
-}
-
-// -------- Calculator ----------
-function calculate() {
-  let direction = document.getElementById("direction").value.toLowerCase();
-  const symbol = (document.getElementById("symbol")?.value || "").toUpperCase().trim();
-  const accountSize = parseFloat(document.getElementById("accountSize")?.value || 0);
-  const riskPercent = parseFloat(document.getElementById("riskPercent")?.value || 0);
-  const entry = parseFloat(document.getElementById("entry")?.value);
-  const stop = parseFloat(document.getElementById("stop")?.value);
-  const target = parseFloat(document.getElementById("target")?.value);
-
-  const outputEl = document.getElementById("result");
-  if (!symbol || isNaN(accountSize) || isNaN(riskPercent) || isNaN(entry) || isNaN(stop)) {
-    alert("Please fill all fields correctly."); return;
+  <script>
+  // ---------------- Contract Size Map ----------------
+  function getContractSize(symbol) {
+    symbol = (symbol || "").toUpperCase();
+    const map = {
+      "EURUSD": 100000, "GBPUSD": 100000, "USDJPY": 100000, "AUDUSD": 100000,
+      "USDCAD": 100000, "USDCHF": 100000, "NZDUSD": 100000,
+      "XAUUSD": 100, "XAGUSD": 5000, "WTIUSD": 1000, "NGAS": 1000,
+      "BTCUSDT": 1, "ETHUSDT": 1, "BNBUSDT": 1, "XRPUSDT": 1000,
+      "AAPL": 1, "TSLA": 1, "MSFT": 1, "AMZN": 1, "GOOGL": 1
+    };
+    if (map[symbol]) return map[symbol];
+    if (symbol.length === 6 && symbol.endsWith("USD")) return 100000;
+    return 1;
   }
 
-  const riskAmount = accountSize * (riskPercent / 100);
-  const stopDiff = Math.abs(entry - stop);
-  if (stopDiff === 0) { alert("Entry and Stop must be different."); return; }
+  // ---------------- Risk Calculator ----------------
+  function calculate() {
+    const direction = document.getElementById("direction").value.toLowerCase();
+    const symbol = (document.getElementById("symbol")?.value || "").toUpperCase().trim();
+    const accountSize = parseFloat(document.getElementById("accountSize")?.value || 0);
+    const riskPercent = parseFloat(document.getElementById("riskPercent")?.value || 0);
+    const entry = parseFloat(document.getElementById("entry")?.value);
+    const stop = parseFloat(document.getElementById("stop")?.value);
+    let target = parseFloat(document.getElementById("target")?.value);
 
-  const units = riskAmount / stopDiff;
-  const contractSize = getContractSize(symbol);
-  const lots = units / contractSize;
+    const outputEl = document.getElementById("result");
 
-  let rewardAmount = 0, rrRatio = 0;
-  if (!isNaN(target)) {
-    const rewardDiff = Math.abs(target - entry);
-    rewardAmount = rewardDiff * units;
-    rrRatio = (riskAmount > 0) ? (rewardAmount / riskAmount) : 0;
-  }
-
-  outputEl.innerHTML = `
-<strong>Trade Command:</strong> ${direction.toUpperCase()} ${symbol}
-<strong>Risk Amount:</strong> $${riskAmount.toFixed(2)}
-<strong>Lot Size:</strong> ${lots.toFixed(2)} lots
-<strong>Potential Reward:</strong> $${rewardAmount.toFixed(2)}
-<strong>R:R Ratio:</strong> ${rrRatio.toFixed(2)}
-  `;
-
-  window.lastCalc = { direction, symbol, entry, stop, target, units, lots, riskAmount, rewardAmount, rrRatio };
-  loadLiveChart(symbol);
-}
-
-// -------- Live Chart ----------
-async function fetchChartData(symbol, interval) {
-    let data = [];
-
-    // ✅ Check if it's a crypto pair (Binance symbols like BTCUSDT, ETHUSDT, etc.)
-    if (symbol.endsWith("USDT") || symbol.endsWith("BTC")) {
-        const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=100`;
-
-        const response = await fetch(url);
-        const raw = await response.json();
-
-        data = raw.map(candle => ({
-            x: new Date(candle[0]),
-            o: parseFloat(candle[1]),
-            h: parseFloat(candle[2]),
-            l: parseFloat(candle[3]),
-            c: parseFloat(candle[4]),
-        }));
-
-    } else {
-        // ✅ Use TwelveData API for forex, stocks, commodities
-        const apiKey = "YOUR_TWELVE_API_KEY_HERE";
-        const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&apikey=${apiKey}&outputsize=100`;
-
-        const response = await fetch(url);
-        const raw = await response.json();
-
-        if (raw.values) {
-            data = raw.values.reverse().map(candle => ({
-                x: new Date(candle.datetime),
-                o: parseFloat(candle.open),
-                h: parseFloat(candle.high),
-                l: parseFloat(candle.low),
-                c: parseFloat(candle.close),
-            }));
-        }
+    if (!symbol) { alert("Please enter a symbol."); return; }
+    if (![accountSize, riskPercent, entry, stop].every(v => !isNaN(v))) {
+      alert("Please fill all fields correctly."); return;
     }
 
+    const riskAmount = accountSize * (riskPercent / 100);
+    const stopDiff = Math.abs(entry - stop);
+    if (stopDiff === 0) { alert("Entry and Stop must differ."); return; }
+
+    const units = riskAmount / stopDiff;
+    const contractSize = getContractSize(symbol);
+    const lots = units / contractSize;
+
+    let rewardAmount = 0, rrRatio = 0;
+    if (!isNaN(target)) {
+      const rewardDiff = Math.abs(target - entry);
+      rewardAmount = rewardDiff * units;
+      rrRatio = (riskAmount > 0) ? (rewardAmount / riskAmount) : 0;
+    }
+
+    outputEl.innerHTML = `
+      <p><strong>Trade Command:</strong> ${direction.toUpperCase()} ${symbol}</p>
+      <p><strong>Risk Amount:</strong> $${riskAmount.toFixed(2)}</p>
+      <p><strong>Lot Size:</strong> ${lots.toFixed(4)} lots</p>
+      <p><strong>Potential Reward:</strong> $${rewardAmount.toFixed(2)}</p>
+      <p><strong>R:R Ratio:</strong> ${rrRatio.toFixed(2)}</p>
+    `;
+
+    window.lastCalc = { symbol, direction, entry, stop, target, units, lots, riskAmount, rewardAmount, rrRatio };
+    updateChart();
+  }
+
+  // ---------------- Live Chart ----------------
+  async function fetchChartData(symbol, interval) {
+    let data = [];
+    if (symbol.endsWith("USDT") || symbol.endsWith("BTC")) {
+      const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=100`;
+      const response = await fetch(url);
+      const raw = await response.json();
+      data = raw.map(c => ({
+        x: new Date(c[0]), o: +c[1], h: +c[2], l: +c[3], c: +c[4]
+      }));
+    } else {
+      const apiKey = "YOUR_TWELVE_API_KEY_HERE"; // Replace with your TwelveData API key
+      const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&apikey=${apiKey}&outputsize=100`;
+      const response = await fetch(url);
+      const raw = await response.json();
+      if (raw.values) {
+        data = raw.values.reverse().map(c => ({
+          x: new Date(c.datetime), o: +c.open, h: +c.high, l: +c.low, c: +c.close
+        }));
+      }
+    }
     return data;
-}
-// -------- CSV Export ----------
-function exportCSV() {
-  if (!window.lastCalc) { alert("Please Calculate first."); return; }
-  const L = window.lastCalc;
-  const header = "TradeCommand,Symbol,Direction,Entry,StopLoss,TakeProfit,Units,Lots,PotentialReward,R_Ratio\n";
-  const row = [
-    `"${L.direction.toUpperCase()} ${L.symbol}"`,
-    L.symbol, L.direction, L.entry, L.stop, L.target || "",
-    L.units.toFixed(2), L.lots.toFixed(6), L.rewardAmount.toFixed(2), L.rrRatio.toFixed(2)
-  ].join(",");
-  const csvContent = header + row + "\n";
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const link = document.createElement("a");
-  link.href = URL.createObjectURL(blob);
-  link.download = "mt5_order.csv";
-  document.body.appendChild(link); link.click(); document.body.removeChild(link);
-}
-</script>
+  }
+
+  async function updateChart() {
+    const symbol = document.getElementById("symbol").value.toUpperCase();
+    const interval = document.getElementById("timeframe").value;
+    if (!symbol) return;
+    const data = await fetchChartData(symbol, interval);
+    const ctx = document.getElementById("chartCanvas").getContext("2d");
+    if (window.chart) window.chart.destroy();
+    window.chart = new Chart(ctx, {
+      type: "candlestick",
+      data: { datasets: [{ label: symbol, data }] },
+      options: { responsive: true }
+    });
+  }
+
+  // ---------------- CSV Export ----------------
+  function exportCSV() {
+    if (!window.lastCalc) { alert("Please Calculate first."); return; }
+    const L = window.lastCalc;
+    const header = "TradeCommand,Symbol,Direction,Entry,StopLoss,TakeProfit,Units,Lots,PotentialReward,R_Ratio\n";
+    const row = [
+      `"${L.direction.toUpperCase()} ${L.symbol}"`, L.symbol, L.direction, L.entry, L.stop, L.target,
+      L.units.toFixed(2), L.lots.toFixed(4), L.rewardAmount.toFixed(2), L.rrRatio.toFixed(2)
+    ].join(",");
+    const csvContent = header + row + "\n";
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "mt5_order.csv";
+    link.click();
+  }
+  </script>
 </body>
 </html>
-
-
