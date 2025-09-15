@@ -131,41 +131,45 @@ function calculate() {
 }
 
 // -------- Live Chart ----------
-async function loadLiveChart(symbol) {
-  const apiKey = "YOUR_TWELVE_API_KEY_HERE"; // replace with your TwelveData API key
-  const interval = document.getElementById("timeframe").value;
-  const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&outputsize=50&apikey=${apiKey}`;
+async function fetchChartData(symbol, interval) {
+    let data = [];
 
-  try {
-    const res = await fetch(url);
-    const data = await res.json();
-    if (!data.values) { console.error("API error:", data); return; }
+    // ✅ Check if it's a crypto pair (Binance symbols like BTCUSDT, ETHUSDT, etc.)
+    if (symbol.endsWith("USDT") || symbol.endsWith("BTC")) {
+        const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=100`;
 
-    const candles = data.values.reverse().map(d => ({
-      time: new Date(d.datetime).getTime() / 1000,
-      open: parseFloat(d.open),
-      high: parseFloat(d.high),
-      low: parseFloat(d.low),
-      close: parseFloat(d.close)
-    }));
+        const response = await fetch(url);
+        const raw = await response.json();
 
-    document.getElementById("liveChart").innerHTML = "";
-    const chart = LightweightCharts.createChart(document.getElementById("liveChart"), { width: 480, height: 400 });
-    const candleSeries = chart.addCandlestickSeries();
-    candleSeries.setData(candles);
+        data = raw.map(candle => ({
+            x: new Date(candle[0]),
+            o: parseFloat(candle[1]),
+            h: parseFloat(candle[2]),
+            l: parseFloat(candle[3]),
+            c: parseFloat(candle[4]),
+        }));
 
-  } catch (err) {
-    console.error("Chart load failed", err);
-  }
+    } else {
+        // ✅ Use TwelveData API for forex, stocks, commodities
+        const apiKey = "YOUR_TWELVE_API_KEY_HERE";
+        const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&apikey=${apiKey}&outputsize=100`;
+
+        const response = await fetch(url);
+        const raw = await response.json();
+
+        if (raw.values) {
+            data = raw.values.reverse().map(candle => ({
+                x: new Date(candle.datetime),
+                o: parseFloat(candle.open),
+                h: parseFloat(candle.high),
+                l: parseFloat(candle.low),
+                c: parseFloat(candle.close),
+            }));
+        }
+    }
+
+    return data;
 }
-
-// reload chart on timeframe change
-function reloadChart() {
-  if (window.lastCalc && window.lastCalc.symbol) {
-    loadLiveChart(window.lastCalc.symbol);
-  }
-}
-
 // -------- CSV Export ----------
 function exportCSV() {
   if (!window.lastCalc) { alert("Please Calculate first."); return; }
@@ -186,3 +190,4 @@ function exportCSV() {
 </script>
 </body>
 </html>
+
