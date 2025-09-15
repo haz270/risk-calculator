@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <title>Risk Calculator with Live Chart</title>
 
-  <!-- Chart.js (v3.7.1) -->
+  <!-- Chart.js v3 (stable) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1"></script>
-  <!-- Chart.js Financial Plugin -->
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.1.0/dist/chartjs-chart-financial.min.js"></script>
+  <!-- Maintained fork of Financial Chart plugin -->
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial-chart.js@0.1.0/dist/chartjs-chart-financial.min.js"></script>
 
   <style>
     body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 20px; }
@@ -84,7 +84,7 @@
   </div>
 
   <script>
-  // ✅ Register financial controllers/elements
+  // ✅ Register financial chart controllers & elements
   Chart.register(
     Chart.FinancialController,
     Chart.CandlestickController,
