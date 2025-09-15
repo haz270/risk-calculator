@@ -201,8 +201,6 @@ direction = direction.toLowerCase(); // always "buy" or "sell"
   <p><strong>R:R Ratio:</strong> ${rrRatio}</p>
 `;
 
-  if (outputEl) outputEl.innerHTML = resultHTML;
-
   // save lastCalc for CSV/export
   window.lastCalc = {
     tradeCmd, symbol, direction, entry, stop, target: Number.isFinite(target)?target:null,
@@ -315,6 +313,7 @@ direction = direction.toLowerCase(); // always "buy" or "sell"
   </script>
 </body>
 </html>
+
 
 
 
