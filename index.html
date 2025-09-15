@@ -127,16 +127,14 @@ function getContractSize(symbol) {
 // ---------- REPLACE your old calculate() with this ----------
 function calculate() {
   // inputs (support multiple id names for compatibility)
-  let direction = document.getElementById("direction").value.toUpperCase();
+  let direction = document.getElementById("direction").value.toLowerCase();
   const symbol = (document.getElementById("symbol")?.value || "").toUpperCase().trim();
   const accountSize = parseFloat((document.getElementById("accountSize")?.value) || (document.getElementById("balance")?.value) || 0);
   const riskPercent = parseFloat((document.getElementById("risk")?.value) || (document.getElementById("riskPercent")?.value) || 0);
   const entry = parseFloat(document.getElementById("entry")?.value);
   const stop = parseFloat(document.getElementById("stop")?.value);
   const rrInput = parseFloat((document.getElementById("rrInput")?.value) || (document.getElementById("rr")?.value) || 0);
- // ✅ Safely read direction from dropdown and normalize
-let direction = document.getElementById("direction")?.value || "buy";
-direction = direction.toLowerCase(); // always "buy" or "sell"
+
   // output element (support "results" or "result")
   const outputEl = document.getElementById("results") || document.getElementById("result") || document.getElementById("resultArea");
 
@@ -193,14 +191,27 @@ direction = direction.toLowerCase(); // always "buy" or "sell"
   const tradeCmd = `${direction.toUpperCase()} ${symbol}`;
 
   // build result text (HTML)
- resultsDiv.innerHTML = `
-  <p><strong>Trade Command:</strong> ${direction} ${symbol}</p>
+outputEl.innerHTML = `
+  <p><strong>Trade Command:</strong> ${direction.toUpperCase()} ${symbol}</p>
   <p><strong>Risk Amount:</strong> $${riskAmount.toFixed(2)}</p>
-  <p><strong>Lot Size:</strong> ${lotSize.toFixed(2)} lots</p>
+  <p><strong>Lot Size:</strong> ${lots.toFixed(6)} lots</p>
   <p><strong>Potential Reward:</strong> $${rewardAmount.toFixed(2)}</p>
-  <p><strong>R:R Ratio:</strong> ${rrRatio}</p>
+  <p><strong>R:R Ratio:</strong> ${rrRatio.toFixed(2)}</p>
 `;
-    }
+  window.lastCalc = {
+  tradeCmd: `${direction.toUpperCase()} ${symbol}`,
+  symbol,
+  direction,
+  entry,
+  stop,
+  target: Number.isFinite(target) ? target : null,
+  units,
+  lots,
+  riskAmount,
+  rewardAmount,
+  rrRatio,
+  contractSize
+};
   </script>
 </body>
 </html>
@@ -316,6 +327,7 @@ direction = direction.toLowerCase(); // always "buy" or "sell"
   </script>
 </body>
 </html>
+
 
 
 
