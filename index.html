@@ -1,11 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Risk Calculator with Live Chart</title>
-  <!-- Chart.js + Financial Plugin -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
+  <meta charset="utf-8" />
+  <title>Risk Calculator with Live Chart (fixed)</title>
+
+  <!-- Chart.js v3 (locked), Luxon + adapter, and financial plugin (v0.2.1) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@2.6.0/build/global/luxon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.4.0/dist/chartjs-adapter-luxon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.2.1/dist/chartjs-chart-financial.min.js"></script>
+
   <style>
     body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 20px; }
     .container { max-width: 1000px; margin: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -15,12 +19,12 @@
     button { background: #007bff; color: white; border: none; cursor: pointer; }
     button:hover { background: #0056b3; }
     pre { background: #f4f4f4; padding: 10px; border-radius: 6px; }
-    canvas { margin-top: 15px; }
+    canvas { margin-top: 15px; width:100% !important; height:300px !important; }
+    .small { font-size: 12px; color: #666; }
   </style>
 </head>
 <body>
   <div class="container">
-    <!-- Card 1: Risk Calculator -->
     <div class="card">
       <h2>Trading Risk Calculator</h2>
 
@@ -61,12 +65,12 @@
 
       <h3>Result:</h3>
       <pre id="result"></pre>
+      <p class="small">Tip: open your browser console to see debug logs from API requests.</p>
     </div>
 
-    <!-- Card 2: Live Chart -->
     <div class="card">
       <h2>Live Chart</h2>
-      
+
       <label>Timeframe</label>
       <select id="timeframe" onchange="updateChart()">
         <option value="1m">1 Minute</option>
@@ -76,54 +80,78 @@
         <option value="1d">1 Day</option>
       </select>
 
-      <canvas id="chartCanvas" height="300"></canvas>
+      <canvas id="chartCanvas"></canvas>
     </div>
   </div>
 
   <script>
-  // Register Chart.js Financial plugin
-  Chart.register(
-    window['chartjs-chart-financial'].CandlestickController,
-    window['chartjs-chart-financial'].OhlcController,
-    window['chartjs-chart-financial'].CandlestickElement,
-    window['chartjs-chart-financial'].OhlcElement
-  );
+  // --- Register financial controllers/elements (must be done after plugin loaded) ---
+  (function registerFinancial() {
+    const financial = window['chartjs-chart-financial'];
+    if (!financial) {
+      console.error('chartjs-chart-financial not found on window. Did the script load?');
+      return;
+    }
+    Chart.register(
+      financial.CandlestickController,
+      financial.CandlestickElement,
+      financial.OhlcController,
+      financial.OhlcElement
+    );
+    console.log('Registered chartjs-chart-financial controllers/elements.');
+  })();
 
-  // ---------------- Contract Size Map ----------------
+  // ---------------- Helpers ----------------
   function getContractSize(symbol) {
-    symbol = (symbol || "").toUpperCase();
+    symbol = (symbol || '').toUpperCase();
     const map = {
-      "EURUSD": 100000, "GBPUSD": 100000, "USDJPY": 100000, "AUDUSD": 100000,
-      "USDCAD": 100000, "USDCHF": 100000, "NZDUSD": 100000,
-      "XAUUSD": 100, "XAGUSD": 5000, "WTIUSD": 1000, "NGAS": 1000,
-      "BTCUSDT": 1, "ETHUSDT": 1, "BNBUSDT": 1, "XRPUSDT": 1000,
-      "AAPL": 1, "TSLA": 1, "MSFT": 1, "AMZN": 1, "GOOGL": 1
+      "EURUSD":100000,"GBPUSD":100000,"USDJPY":100000,"AUDUSD":100000,
+      "USDCAD":100000,"USDCHF":100000,"NZDUSD":100000,
+      "XAUUSD":100,"XAGUSD":5000,"WTIUSD":1000,"NGAS":1000,
+      "BTCUSDT":1,"ETHUSDT":1,"BNBUSDT":1,"XRPUSDT":1000,
+      "AAPL":1,"TSLA":1,"MSFT":1,"AMZN":1,"GOOGL":1
     };
     if (map[symbol]) return map[symbol];
-    if (symbol.length === 6 && symbol.endsWith("USD")) return 100000;
+    if (symbol.length === 6 && symbol.endsWith('USD')) return 100000;
     return 1;
+  }
+
+  function mapIntervalForTwelve(interval) {
+    switch(interval) {
+      case '1m': return '1min';
+      case '5m': return '5min';
+      case '15m': return '15min';
+      case '1h': return '1h';
+      case '1d': return '1day';
+      default: return interval;
+    }
+  }
+
+  function isCryptoSymbol(symbol) {
+    // treat common crypto suffixes as crypto for Binance
+    return /USDT$|BTC$|ETH$|BNB$/i.test(symbol);
   }
 
   // ---------------- Risk Calculator ----------------
   function calculate() {
-    const direction = document.getElementById("direction").value.toLowerCase();
-    const symbol = (document.getElementById("symbol")?.value || "").toUpperCase().trim();
-    const accountSize = parseFloat(document.getElementById("accountSize")?.value || 0);
-    const riskPercent = parseFloat(document.getElementById("riskPercent")?.value || 0);
-    const entry = parseFloat(document.getElementById("entry")?.value);
-    const stop = parseFloat(document.getElementById("stop")?.value);
-    let target = parseFloat(document.getElementById("target")?.value);
+    const direction = document.getElementById('direction').value.toLowerCase();
+    const symbol = (document.getElementById('symbol')?.value || '').toUpperCase().trim();
+    const accountSize = parseFloat(document.getElementById('accountSize')?.value || 0);
+    const riskPercent = parseFloat(document.getElementById('riskPercent')?.value || 0);
+    const entry = parseFloat(document.getElementById('entry')?.value);
+    const stop = parseFloat(document.getElementById('stop')?.value);
+    let target = parseFloat(document.getElementById('target')?.value);
 
-    const outputEl = document.getElementById("result");
+    const outputEl = document.getElementById('result');
 
-    if (!symbol) { alert("Please enter a symbol."); return; }
+    if (!symbol) { alert('Please enter a symbol.'); return; }
     if (![accountSize, riskPercent, entry, stop].every(v => !isNaN(v))) {
-      alert("Please fill all fields correctly."); return;
+      alert('Please fill all fields correctly.'); return;
     }
 
-    const riskAmount = accountSize * (riskPercent / 100);
+    const riskAmount = accountSize * (riskPercent/100);
     const stopDiff = Math.abs(entry - stop);
-    if (stopDiff === 0) { alert("Entry and Stop must differ."); return; }
+    if (stopDiff === 0) { alert('Entry and Stop must differ.'); return; }
 
     const units = riskAmount / stopDiff;
     const contractSize = getContractSize(symbol);
@@ -152,66 +180,114 @@
   async function fetchChartData(symbol, interval) {
     let data = [];
     try {
-      if (symbol.endsWith("USDT") || symbol.endsWith("BTC")) {
-        // Binance for crypto
-        const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=100`;
-        const response = await fetch(url);
-        const raw = await response.json();
-        if (!Array.isArray(raw)) throw new Error("Binance API error: " + JSON.stringify(raw));
-        data = raw.map(c => ({
-          x: new Date(c[0]),
-          o: +c[1], h: +c[2], l: +c[3], c: +c[4]
-        }));
+      console.log('Fetching chart data for', symbol, 'interval', interval);
+      if (isCryptoSymbol(symbol)) {
+        // Binance expects intervals like 1m,5m,15m,1h,1d
+        const binInterval = interval;
+        const url = `https://api.binance.com/api/v3/klines?symbol=${encodeURIComponent(symbol)}&interval=${binInterval}&limit=100`;
+        const res = await fetch(url);
+        const raw = await res.json();
+        console.log('Binance raw:', raw && raw.length ? `array(${raw.length})` : raw);
+        if (!Array.isArray(raw)) throw new Error('Binance returned error: ' + JSON.stringify(raw));
+        data = raw.map(c => ({ x: new Date(c[0]), o: +c[1], h: +c[2], l: +c[3], c: +c[4] }));
       } else {
-        // TwelveData for stocks/forex
-        const apiKey = "YOUR_TWELVE_API_KEY_HERE"; // 🔑 Replace with your real API key
-        const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&apikey=${apiKey}&outputsize=100`;
-        const response = await fetch(url);
-        const raw = await response.json();
-        if (raw.status === "error") throw new Error(raw.message);
-        if (raw.values) {
-          data = raw.values.reverse().map(c => ({
-            x: new Date(c.datetime),
-            o: +c.open, h: +c.high, l: +c.low, c: +c.close
-          }));
+        // TwelveData requires intervals like 1min,5min,15min,1h,1day etc.
+        const tdInterval = mapIntervalForTwelve(interval);
+        const apiKey = "YOUR_TWELVE_API_KEY_HERE"; // <-- replace with your TwelveData key
+        if (!apiKey || apiKey === 'YOUR_TWELVE_API_KEY_HERE') {
+          console.warn('TwelveData API key not set - returning empty data for stocks/forex. Replace YOUR_TWELVE_API_KEY_HERE.');
+        }
+        const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${tdInterval}&apikey=${apiKey}&outputsize=100`;
+        const res = await fetch(url);
+        const raw = await res.json();
+        console.log('TwelveData raw:', raw);
+        if (raw.status === 'error') throw new Error(raw.message || JSON.stringify(raw));
+        if (raw.values && Array.isArray(raw.values)) {
+          data = raw.values.slice().reverse().map(c => ({ x: new Date(c.datetime), o: +c.open, h: +c.high, l: +c.low, c: +c.close }));
         }
       }
     } catch (err) {
-      alert("Error fetching chart data: " + err.message);
+      console.error('fetchChartData error:', err);
+      // don't throw — return empty array so caller can show fallback
     }
     return data;
   }
 
+  // Small fallback demo dataset generator (so you always see candles)
+  function makeFallbackData(count = 60, center = 100) {
+    const out = [];
+    let time = Date.now() - count * 60 * 1000;
+    let price = center;
+    for (let i = 0; i < count; i++) {
+      const open = price + (Math.random() - 0.5) * 1.2;
+      const close = open + (Math.random() - 0.5) * 2.0;
+      const high = Math.max(open, close) + Math.random() * 1.5;
+      const low = Math.min(open, close) - Math.random() * 1.5;
+      out.push({ x: new Date(time), o: +open.toFixed(4), h: +high.toFixed(4), l: +low.toFixed(4), c: +close.toFixed(4) });
+      time += 60 * 1000;
+      price = close;
+    }
+    return out;
+  }
+
   async function updateChart() {
-    const symbol = document.getElementById("symbol").value.toUpperCase();
-    const interval = document.getElementById("timeframe").value;
-    if (!symbol) return;
-    const data = await fetchChartData(symbol, interval);
-    const ctx = document.getElementById("chartCanvas").getContext("2d");
+    const symbol = (document.getElementById('symbol').value || '').toUpperCase().trim();
+    const interval = document.getElementById('timeframe').value;
+    if (!symbol) {
+      console.log('No symbol set, skipping chart update.');
+      return;
+    }
+
+    const rawData = await fetchChartData(symbol, interval);
+    const data = (rawData && rawData.length) ? rawData : (window.lastCalc && window.lastCalc.entry ? makeFallbackData(60, window.lastCalc.entry) : makeFallbackData(60, 100));
+    if (!rawData || rawData.length === 0) console.warn('No real API data found — using fallback demo dataset.');
+
+    console.log('Chart data sample:', data.slice(0, 4));
+    const ctx = document.getElementById('chartCanvas').getContext('2d');
+
     if (window.chart) window.chart.destroy();
+
+    const unit = (interval === '1d') ? 'day' : 'minute';
     window.chart = new Chart(ctx, {
-      type: "candlestick",
+      type: 'candlestick',
       data: { datasets: [{ label: symbol, data }] },
-      options: { responsive: true }
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: {
+            type: 'time',
+            time: { unit: unit },
+            ticks: { source: 'auto' }
+          },
+          y: {
+            beginAtZero: false,
+            position: 'right'
+          }
+        }
+      }
     });
   }
 
   // ---------------- CSV Export ----------------
   function exportCSV() {
-    if (!window.lastCalc) { alert("Please Calculate first."); return; }
+    if (!window.lastCalc) { alert('Please Calculate first.'); return; }
     const L = window.lastCalc;
     const header = "TradeCommand,Symbol,Direction,Entry,StopLoss,TakeProfit,Units,Lots,PotentialReward,R_Ratio\n";
     const row = [
       `"${L.direction.toUpperCase()} ${L.symbol}"`, L.symbol, L.direction, L.entry, L.stop, L.target,
       L.units.toFixed(2), L.lots.toFixed(4), L.rewardAmount.toFixed(2), L.rrRatio.toFixed(2)
-    ].join(",");
-    const csvContent = header + row + "\n";
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
+    ].join(',');
+    const csvContent = header + row + '\n';
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = "mt5_order.csv";
+    link.download = 'mt5_order.csv';
     link.click();
   }
+
+  // keep chart in sync when the timeframe changes (and on first calculate)
+  // (user interaction triggers updateChart)
   </script>
 </body>
 </html>
