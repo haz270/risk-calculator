@@ -69,7 +69,13 @@
 
     <label for="target">Target Price:</label>
     <input type="number" id="target" placeholder="e.g. 1970">
-
+    <label for="direction">Direction:</label>
+<select id="direction">
+  <option value="buy">Buy (Long)</option>
+  <option value="sell">Sell (Short)</option>
+</select>
+<br><br>
+    
     <button onclick="calculate()">Calculate</button>
     <button onclick="exportCSV()">Export MT5 Order (CSV)</button>
 
@@ -121,6 +127,7 @@ function getContractSize(symbol) {
 // ---------- REPLACE your old calculate() with this ----------
 function calculate() {
   // inputs (support multiple id names for compatibility)
+  let direction = document.getElementById("direction").value.toUpperCase();
   const symbol = (document.getElementById("symbol")?.value || "").toUpperCase().trim();
   const accountSize = parseFloat((document.getElementById("accountSize")?.value) || (document.getElementById("balance")?.value) || 0);
   const riskPercent = parseFloat((document.getElementById("risk")?.value) || (document.getElementById("riskPercent")?.value) || 0);
@@ -186,16 +193,13 @@ direction = direction.toLowerCase(); // always "buy" or "sell"
   const tradeCmd = `${direction.toUpperCase()} ${symbol}`;
 
   // build result text (HTML)
-  const resultHTML = `
-    <strong>Trade Command:</strong> ${tradeCmd}<br>
-    <strong>Risk Amount:</strong> $${riskAmount.toFixed(2)}<br>
-    <strong>Price difference (entry↔stop):</strong> ${stopDiff}<br>
-    <strong>Position Size:</strong> ${unitsDisplay} ${unitLabel}<br>
-    <strong>Lot Size:</strong> ${lotDisplay} lots<br>
-    ${ Number.isFinite(target) ? `<strong>Target:</strong> ${target.toFixed(4)}<br>` : "" }
-    ${ rewardAmount>0 ? `<strong>Potential Reward:</strong> $${rewardAmount.toFixed(2)}<br>` : "" }
-    ${ rrRatio>0 ? `<strong>R:R Ratio:</strong> ${rrRatio.toFixed(2)}<br>` : "" }
-  `;
+ resultsDiv.innerHTML = `
+  <p><strong>Trade Command:</strong> ${direction} ${symbol}</p>
+  <p><strong>Risk Amount:</strong> $${riskAmount.toFixed(2)}</p>
+  <p><strong>Lot Size:</strong> ${lotSize.toFixed(2)} lots</p>
+  <p><strong>Potential Reward:</strong> $${rewardAmount.toFixed(2)}</p>
+  <p><strong>R:R Ratio:</strong> ${rrRatio}</p>
+`;
 
   if (outputEl) outputEl.innerHTML = resultHTML;
 
@@ -311,6 +315,7 @@ direction = direction.toLowerCase(); // always "buy" or "sell"
   </script>
 </body>
 </html>
+
 
 
 
