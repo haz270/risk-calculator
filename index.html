@@ -3,16 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <title>Risk Calculator with Live Chart</title>
-  <!-- ✅ Chart.js v3.7.1 -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1"></script>
-
-  <!-- ✅ Time adapter (needed for candlestick X-axis) -->
-  <script src="https://cdn.jsdelivr.net/npm/luxon@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
-
-  <!-- ✅ Financial plugin -->
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.1.0"></script>
-
+  <!-- Chart.js + Financial Plugin -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
   <style>
     body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 20px; }
     .container { max-width: 1000px; margin: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -88,11 +81,11 @@
   </div>
 
   <script>
-  // ✅ Register candlestick + ohlc
+  // Register Chart.js Financial plugin
   Chart.register(
     window['chartjs-chart-financial'].CandlestickController,
-    window['chartjs-chart-financial'].CandlestickElement,
     window['chartjs-chart-financial'].OhlcController,
+    window['chartjs-chart-financial'].CandlestickElement,
     window['chartjs-chart-financial'].OhlcElement
   );
 
@@ -158,23 +151,33 @@
   // ---------------- Live Chart ----------------
   async function fetchChartData(symbol, interval) {
     let data = [];
-    if (symbol.endsWith("USDT") || symbol.endsWith("BTC")) {
-      const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=100`;
-      const response = await fetch(url);
-      const raw = await response.json();
-      data = raw.map(c => ({
-        x: new Date(c[0]), o: +c[1], h: +c[2], l: +c[3], c: +c[4]
-      }));
-    } else {
-      const apiKey = "YOUR_TWELVE_API_KEY_HERE"; // Replace with your TwelveData API key
-      const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&apikey=${apiKey}&outputsize=100`;
-      const response = await fetch(url);
-      const raw = await response.json();
-      if (raw.values) {
-        data = raw.values.reverse().map(c => ({
-          x: new Date(c.datetime), o: +c.open, h: +c.high, l: +c.low, c: +c.close
+    try {
+      if (symbol.endsWith("USDT") || symbol.endsWith("BTC")) {
+        // Binance for crypto
+        const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=100`;
+        const response = await fetch(url);
+        const raw = await response.json();
+        if (!Array.isArray(raw)) throw new Error("Binance API error: " + JSON.stringify(raw));
+        data = raw.map(c => ({
+          x: new Date(c[0]),
+          o: +c[1], h: +c[2], l: +c[3], c: +c[4]
         }));
+      } else {
+        // TwelveData for stocks/forex
+        const apiKey = "YOUR_TWELVE_API_KEY_HERE"; // 🔑 Replace with your real API key
+        const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&apikey=${apiKey}&outputsize=100`;
+        const response = await fetch(url);
+        const raw = await response.json();
+        if (raw.status === "error") throw new Error(raw.message);
+        if (raw.values) {
+          data = raw.values.reverse().map(c => ({
+            x: new Date(c.datetime),
+            o: +c.open, h: +c.high, l: +c.low, c: +c.close
+          }));
+        }
       }
+    } catch (err) {
+      alert("Error fetching chart data: " + err.message);
     }
     return data;
   }
@@ -189,13 +192,7 @@
     window.chart = new Chart(ctx, {
       type: "candlestick",
       data: { datasets: [{ label: symbol, data }] },
-      options: {
-        responsive: true,
-        scales: {
-          x: { type: "time", time: { unit: "minute" } },
-          y: { beginAtZero: false }
-        }
-      }
+      options: { responsive: true }
     });
   }
 
