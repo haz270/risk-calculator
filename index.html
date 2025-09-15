@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <title>Risk Calculator with Live Chart</title>
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
+  <!-- ✅ Use Chart.js v3.7.1 (not v4) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1"></script>
+  <!-- ✅ Use matching financial plugin -->
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.1.0"></script>
   <style>
     body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 20px; }
     .container { max-width: 1000px; margin: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -81,6 +82,12 @@
   </div>
 
   <script>
+  // ✅ Register candlestick chart type
+  Chart.register(
+    window['chartjs-chart-financial'].CandlestickController,
+    window['chartjs-chart-financial'].CandlestickElement
+  );
+
   // ---------------- Contract Size Map ----------------
   function getContractSize(symbol) {
     symbol = (symbol || "").toUpperCase();
