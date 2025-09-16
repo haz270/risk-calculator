@@ -4,9 +4,10 @@
   <meta charset="UTF-8">
   <title>Risk Calculator with Live Chart</title>
 
-  <!-- Chart.js v3 (stable) -->
+  <!-- Chart.js v3 -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1"></script>
-  <!-- Maintained fork of Financial Chart plugin -->
+
+  <!-- Financial plugin (maintained fork for candlesticks) -->
   <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial-chart.js@0.1.0/dist/chartjs-chart-financial.min.js"></script>
 
   <style>
@@ -84,7 +85,7 @@
   </div>
 
   <script>
-  // ✅ Register financial chart controllers & elements
+  // ✅ Register candlestick/ohlc controllers
   Chart.register(
     Chart.FinancialController,
     Chart.CandlestickController,
@@ -152,27 +153,43 @@
     updateChart();
   }
 
-  // ---------------- Live Chart ----------------
+  // ---------------- Interval Mapping ----------------
+  function mapInterval(interval) {
+    const map = {
+      "1m": "1min",
+      "5m": "5min",
+      "15m": "15min",
+      "1h": "1h",
+      "1d": "1day"
+    };
+    return map[interval] || "1h";
+  }
+
+  // ---------------- Fetch Chart Data ----------------
   async function fetchChartData(symbol, interval) {
     let data = [];
     try {
       if (symbol.endsWith("USDT") || symbol.endsWith("BTC")) {
-        // ✅ Binance for crypto
+        // Binance for crypto
         const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=100`;
         const response = await fetch(url);
         const raw = await response.json();
         data = raw.map(c => ({
-          x: new Date(c[0]), o: +c[1], h: +c[2], l: +c[3], c: +c[4]
+          x: new Date(c[0]),
+          o: +c[1], h: +c[2], l: +c[3], c: +c[4]
         }));
       } else {
-        // ✅ TwelveData for stocks/forex (replace API key!)
-        const apiKey = "240a4943448d4b91a384b6031104e0a2";
-        const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&apikey=${apiKey}&outputsize=100`;
+        // Twelve Data for forex, stocks, commodities
+        const apiKey = "240a4943448d4b91a384b6031104e0a2"; // 🔑 insert your key
+        const apiInterval = mapInterval(interval);
+        const tdSymbol = symbol.includes("/") ? symbol : symbol.replace("USD", "/USD");
+        const url = `https://api.twelvedata.com/time_series?symbol=${tdSymbol}&interval=${apiInterval}&apikey=${apiKey}&outputsize=100`;
         const response = await fetch(url);
         const raw = await response.json();
         if (raw.values) {
           data = raw.values.reverse().map(c => ({
-            x: new Date(c.datetime), o: +c.open, h: +c.high, l: +c.low, c: +c.close
+            x: new Date(c.datetime),
+            o: +c.open, h: +c.high, l: +c.low, c: +c.close
           }));
         } else {
           console.error("TwelveData error:", raw);
@@ -184,17 +201,20 @@
     return data;
   }
 
+  // ---------------- Update Chart ----------------
   async function updateChart() {
     const symbol = document.getElementById("symbol").value.toUpperCase();
     const interval = document.getElementById("timeframe").value;
     if (!symbol) return;
 
     const data = await fetchChartData(symbol, interval);
-    console.log("Fetched data:", data);
-    console.log("Chart data:", data); // debug
+    console.log("Chart data:", data);
 
     const ctx = document.getElementById("chartCanvas").getContext("2d");
-    if (window.chart) window.chart.destroy();
+    if (window.chart) {
+      window.chart.destroy(); // ✅ fix: destroy old chart before reusing canvas
+    }
+
     window.chart = new Chart(ctx, {
       type: "candlestick",
       data: { datasets: [{ label: symbol, data }] },
@@ -221,5 +241,3 @@
   </script>
 </body>
 </html>
-
-
