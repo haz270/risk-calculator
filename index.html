@@ -190,6 +190,7 @@
     if (!symbol) return;
 
     const data = await fetchChartData(symbol, interval);
+    console.log("Fetched data:", data);
     console.log("Chart data:", data); // debug
 
     const ctx = document.getElementById("chartCanvas").getContext("2d");
@@ -220,4 +221,5 @@
   </script>
 </body>
 </html>
+
 
