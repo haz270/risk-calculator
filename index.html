@@ -5,10 +5,9 @@
   <title>Risk Calculator with Live Chart</title>
 
   <!-- Chart.js v3 -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1"></script>
-
-  <!-- Financial plugin (maintained fork for candlesticks) -->
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial-chart.js@0.1.0/dist/chartjs-chart-financial.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@3.3.0/dist/chartjs-chart-financial.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 
   <style>
     body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 20px; }
@@ -85,14 +84,6 @@
   </div>
 
   <script>
-  // ✅ Register candlestick/ohlc controllers
-  Chart.register(
-    Chart.FinancialController,
-    Chart.CandlestickController,
-    Chart.OhlcController,
-    Chart.elements.Candlestick,
-    Chart.elements.Ohlc
-  );
 
   // ---------------- Contract Size Map ----------------
   function getContractSize(symbol) {
@@ -201,38 +192,58 @@
     return data;
   }
 
-  // ---------------- Update Chart ----------------
-  async function updateChart() {
-    const symbol = document.getElementById("symbol").value.toUpperCase();
-    const interval = document.getElementById("timeframe").value;
-    if (!symbol) return;
+ async function updateChart() {
+  const symbol = (document.getElementById("symbol").value || "").toUpperCase();
+  const interval = document.getElementById("timeframe").value || "1h";
+  if (!symbol) return;
 
-    const data = await fetchChartData(symbol, interval);
-    console.log("Chart data:", data);
+  // fetch candles (your existing fetchChartData handles Binance / TwelveData)
+  const data = await fetchChartData(symbol, interval);
+  console.log("Chart data length:", data.length);
 
-   const ctx = document.getElementById("chartCanvas").getContext("2d");
+  // get canvas context
+  const ctx = document.getElementById("chartCanvas").getContext("2d");
 
-// ✅ Check if chart exists before destroying
-if (window.currentChart && typeof window.currentChart.destroy === "function") {
-    window.currentChart.destroy();
-}
+  // destroy previous chart if exists (safe)
+  if (window.currentChart && typeof window.currentChart.destroy === "function") {
+    try { window.currentChart.destroy(); } catch (e) { console.warn("destroy error", e); }
+  }
 
-window.currentChart = new Chart(ctx, {
-    type: "candlestick",
+  // if no data, show a message in console and return
+  if (!data || data.length === 0) {
+    console.warn("No candle data available for", symbol);
+    // clear canvas (optional): draw a blank chart or show message
+    // Here we just clear and return
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    return;
+  }
+
+  // Create new candlestick chart
+  window.currentChart = new Chart(ctx, {
+    type: 'candlestick',
     data: {
-        datasets: [
-            {
-                label: symbol,
-                data: data
-            }
-        ]
+      datasets: [{
+        label: symbol,
+        data: data
+      }]
     },
     options: {
-        responsive: true,
-        maintainAspectRatio: false
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        x: {
+          type: 'time',            // important: use time axis
+          time: { unit: 'minute' },// adapter will handle formatting
+          ticks: { maxRotation: 0 }
+        },
+        y: { beginAtZero: false }
+      }
     }
-});
-  }
+  });
+}
 
   // ---------------- CSV Export ----------------
   function exportCSV() {
@@ -253,4 +264,5 @@ window.currentChart = new Chart(ctx, {
   </script>
 </body>
 </html>
+
 
