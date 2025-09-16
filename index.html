@@ -210,16 +210,28 @@
     const data = await fetchChartData(symbol, interval);
     console.log("Chart data:", data);
 
-    const ctx = document.getElementById("chartCanvas").getContext("2d");
-    if (window.chart) {
-      window.chart.destroy(); // ✅ fix: destroy old chart before reusing canvas
-    }
+   const ctx = document.getElementById("chartCanvas").getContext("2d");
 
-    window.chart = new Chart(ctx, {
-      type: "candlestick",
-      data: { datasets: [{ label: symbol, data }] },
-      options: { responsive: true }
-    });
+// ✅ Check if chart exists before destroying
+if (window.currentChart && typeof window.currentChart.destroy === "function") {
+    window.currentChart.destroy();
+}
+
+window.currentChart = new Chart(ctx, {
+    type: "candlestick",
+    data: {
+        datasets: [
+            {
+                label: symbol,
+                data: data
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false
+    }
+});
   }
 
   // ---------------- CSV Export ----------------
@@ -241,3 +253,4 @@
   </script>
 </body>
 </html>
+
