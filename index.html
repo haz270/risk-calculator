@@ -166,7 +166,7 @@
         }));
       } else {
         // ✅ TwelveData for stocks/forex (replace API key!)
-        const apiKey = "YOUR_TWELVE_API_KEY_HERE";
+        const apiKey = "240a4943448d4b91a384b6031104e0a2";
         const url = `https://api.twelvedata.com/time_series?symbol=${symbol}&interval=${interval}&apikey=${apiKey}&outputsize=100`;
         const response = await fetch(url);
         const raw = await response.json();
@@ -220,3 +220,4 @@
   </script>
 </body>
 </html>
+
