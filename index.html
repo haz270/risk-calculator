@@ -220,32 +220,25 @@
 
   // Create new candlestick chart
    let chartInstance = null;
-  window.currentChart = new Chart(ctx, {
-    type: 'candlestick',
-    data: {
-      datasets: [{
-        label: symbol,
-        data: data
-      }]
-    },
+function createChart(data) {
+  const canvas = document.getElementById('myChart'); // your canvas id
+  const ctx = canvas.getContext('2d');
+
+  // If an instance already exists, destroy it first
+  if (chartInstance) {
+    chartInstance.destroy();
+    chartInstance = null;
+  }
+
+  chartInstance = new Chart(ctx, {
+    type: 'candlestick', // or 'bar'/'line' etc. (use the financial plugin for candlesticks)
+    data: data,
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false }
-      },
-      scales: {
-        x: {
-          type: 'time',            // important: use time axis
-          time: { unit: 'minute' },// adapter will handle formatting
-          ticks: { maxRotation: 0 }
-        },
-        y: { beginAtZero: false }
-      }
     }
   });
 }
-
   // ---------------- CSV Export ----------------
   function exportCSV() {
     if (!window.lastCalc) { alert("Please Calculate first."); return; }
@@ -269,6 +262,7 @@ setInterval(() => {
   </script>
 </body>
 </html>
+
 
 
 
